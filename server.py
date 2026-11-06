@@ -10,33 +10,59 @@ HOST_KEY=os.environ.get('HOST_KEY') or secrets.token_urlsafe(18)
 PORT=int(os.environ.get('PORT','8080'))
 LOCK=threading.RLock()
 THEMES=[
- {'id':'team','name':'Teamontwikkeling','short':'Samen leren','color':'#59b7bd','questions':[
-  'De komende acht weken wil ik meer gebruikmaken van de kwaliteiten en expertise van collega’s.',
-  'Het delen van succesvolle lesideeën verdient de komende acht weken extra aandacht.',
-  'Lesbezoeken bij collega’s kunnen mijn handelen de komende acht weken versterken.',
-  'Ik wil vaker praktijkcasussen met collega’s bespreken om samen te leren.',
-  'We mogen de komende acht weken bewuster werken aan verbinding en onderling vertrouwen in het team.']},
- {'id':'pedagogiek','name':'Pedagogisch handelen','short':'Leerling centraal','color':'#efb668','questions':[
-  'De sociaal-emotionele ontwikkeling van leerlingen verdient de komende acht weken extra gezamenlijke aandacht.',
-  'We kunnen bewuster investeren in de relatie tussen docent en leerling en in een veilig leerklimaat.',
-  'Ik wil leerlingen de komende acht weken meer verantwoordelijkheid laten nemen voor hun leerproces.',
-  'We kunnen gezamenlijk sterker worden in hoge verwachtingen en leerbevorderende feedback.',
-  'We kunnen leerlingen vaker uitdagen tot zelfstandig en verdiepend denken.']},
- {'id':'processen','name':'Professionele ontwikkeling en processen','short':'Slim samenwerken','color':'#ad91de','questions':[
-  'De communicatie over de vorderingen van leerlingen verdient de komende acht weken extra aandacht.',
-  'We kunnen leerlinginformatie in de OMU consistenter en bruikbaarder vastleggen.',
-  'Ik wil de komende acht weken bijdragen aan het verbeteren van rapporten en portfolio’s.',
-  'We kunnen duidelijker afspreken hoe we flexibel omgaan met de groei en veranderingen in onze school.',
-  'Het bewuster inzetten van elkaars expertise kan ons werk doelgerichter maken.']}
+ {'id':'autonomie','name':'Autonomie','short':'Autonomie','color':'#52BBA9','questions':[
+  'We geven collega’s de komende acht weken meer ruimte om professionele keuzes te maken en die met elkaar te onderbouwen.',
+  'We laten leerlingen vaker zelf keuzes maken over de aanpak van hun leerdoel, binnen duidelijke kaders.',
+  'We kunnen leerlingen beter begeleiden om verantwoordelijkheid te nemen voor hun gedrag en de gevolgen ervan.',
+  'We bespreken als team waar zelfstandigheid wenselijk is en waar een leerling juist structuur of begeleiding nodig heeft.',
+  'We laten leerlingen vaker zelf terugkijken op hun vooruitgang en een haalbare volgende stap formuleren.']},
+ {'id':'pedagogiek','name':'Pedagogisch handelen','short':'Pedagogiek','color':'#F09B76','questions':[
+  'We bespreken vaker hoe we leerlingen begeleiden naar een zelfstandig en verantwoordelijk volwassen bestaan.',
+  'We maken het pedagogisch klimaat van onze school vaker onderwerp van een open teamgesprek.',
+  'We nemen de tijd om pedagogische casussen te bespreken zonder direct naar een oplossing te springen.',
+  'We stemmen ons handelen bij grensoverschrijdend of lastig gedrag beter op elkaar af.',
+  'We kijken bij pedagogische vraagstukken bewuster naar de relatie en de behoefte achter het gedrag van de leerling.']},
+ {'id':'didactiek','name':'Didactiek','short':'Didactiek','color':'#E8B75C','questions':[
+  'We besteden de komende acht weken meer aandacht aan wat een goede les voor onze leerlingen effectief maakt.',
+  'We ontwikkelen en verbeteren lesmateriaal vaker samen, in plaats van ieder voor zich.',
+  'We benutten leerdoelen en succescriteria duidelijker zodat leerlingen weten wat ze leren en wanneer het lukt.',
+  'We onderzoeken vaker of onze instructie en werkvormen aansluiten bij de uiteenlopende taal- en onderwijsniveaus.',
+  'We geven leerlingen gerichter feedback en controleren of die feedback hen daadwerkelijk verder helpt.']},
+ {'id':'verbinding','name':'Verbinding','short':'Verbinding','color':'#86A8EB','questions':[
+  'We maken de komende acht weken bewuster tijd voor echt contact tussen collega’s, ook buiten ons eigen kernteam.',
+  'We investeren in kleine dagelijkse contactmomenten waardoor leerlingen zich gezien en welkom voelen.',
+  'We creëren vaker momenten waarop leerlingen en medewerkers elkaar buiten de les op een andere manier leren kennen.',
+  'We organiseren of stimuleren laagdrempelige teamactiviteiten die de onderlinge verbinding versterken.',
+  'We spreken elkaar gemakkelijker aan en durven vragen te stellen vanuit vertrouwen en nieuwsgierigheid.']},
+ {'id':'scholing','name':'Scholing','short':'Scholing','color':'#B18DE5','questions':[
+  'We maken van lesbezoeken een laagdrempelige manier om van de praktijk te leren.',
+  'We plannen vaker intervisie waarin we een eigen leervraag of dilemma kunnen onderzoeken.',
+  'We geven zelfzorg, werkdruk en duurzame inzetbaarheid ook een plek in onze professionele ontwikkeling.',
+  'We vertalen inzichten uit trainingen en studiedagen vaker naar concrete veranderingen in onze lessen.',
+  'We nemen ieder bewuster eigenaarschap over één persoonlijk ontwikkelpunt en delen de voortgang.']},
+ {'id':'expertise','name':'Expertise','short':'Expertise','color':'#D986AE','questions':[
+  'We brengen beter in kaart welke kennis, vaardigheden en talenten in ons team aanwezig zijn.',
+  'We vragen collega’s gerichter om mee te denken vanuit hun specifieke kwaliteiten.',
+  'We gebruiken lesbezoeken om elkaars sterke kanten te herkennen en die vervolgens zelf uit te proberen.',
+  'We spreken onderling hoge maar haalbare verwachtingen uit over ons professionele handelen.',
+  'We delen vaker voorbeelden van wat goed werkt, inclusief waarom het volgens ons werkt.']},
+ {'id':'organisatie','name':'Organisatie','short':'Organisatie','color':'#78B8B0','questions':[
+  'We maken de jaarplanning overzichtelijker en vertalen die naar heldere prioriteiten per periode.',
+  'We maken duidelijker wie waarvoor inzetbaar en verantwoordelijk is binnen het team.',
+  'We stemmen werkzaamheden en beschikbare tijd beter op elkaar af om piekbelasting te beperken.',
+  'We zorgen dat teamafspraken eenvoudig terug te vinden zijn en ook in de praktijk worden opgevolgd.',
+  'We houden bij veranderingen in roosters, taken of leerlingaantallen beter zicht op de gevolgen voor onderwijskwaliteit.']}
 ]
 
 def fresh():
- return {'code':secrets.token_hex(3).upper(),'phase':'reflectie','created':time.time(),'responses':{},'groups':[],'revision':0}
+ return {'code':secrets.token_hex(3).upper(),'phase':'reflectie','created':time.time(),'responses':{},'starts':{},'groups':[],'revision':0}
 
 def load():
  try:
   d=json.loads(DATA.read_text(encoding='utf8'))
-  if isinstance(d,dict) and 'code' in d: return d
+  if isinstance(d,dict) and 'code' in d:
+   d.setdefault('starts',{})
+   return d
  except (OSError,ValueError): pass
  return fresh()
 STATE=load()
@@ -58,7 +84,7 @@ def summary():
  return sorted(result,key=lambda t:(t['mean'] is not None,t['mean'] or 0),reverse=True)
 
 def public():
- return {'code':STATE['code'],'phase':STATE['phase'],'revision':STATE['revision'],'themes':THEMES,'summary':summary(),'participants':len(STATE['responses']),'completed':sum(len(r.get('answers',{}))==15 for r in STATE['responses'].values()),'groups':STATE['groups']}
+ return {'code':STATE['code'],'phase':STATE['phase'],'revision':STATE['revision'],'themes':THEMES,'summary':summary(),'participants':len(STATE['responses']),'completed':sum(all(f'{t["id"]}-{i}' in r.get('answers',{}) for t in THEMES for i in range(5)) for r in STATE['responses'].values()),'groups':STATE['groups']}
 
 class App(BaseHTTPRequestHandler):
  def log_message(self,fmt,*args):pass
@@ -92,10 +118,20 @@ class App(BaseHTTPRequestHandler):
   self.reply({'error':'not found'},404)
  def do_POST(self):
   path=urllib.parse.urlsplit(self.path).path;data=self.body()
+  if path=='/api/start':
+   uid=data.get('uid');code=data.get('code')
+   if not isinstance(uid,str) or not 12<=len(uid)<=80:self.reply({'error':'ongeldige deelnemer'},400);return
+   with LOCK:
+    if code!=STATE['code']:self.reply({'error':'sessiecode onjuist'},403);return
+    starts=STATE.setdefault('starts',{})
+    if uid not in starts:
+     starts[uid]=len(starts)%len(THEMES)
+     update()
+    self.reply({'start':starts[uid]});return
   if path=='/api/answer':
    uid=data.get('uid');code=data.get('code');answers=data.get('answers')
    if not isinstance(uid,str) or len(uid)>80 or len(uid)<12 or not isinstance(answers,dict):self.reply({'error':'ongeldige invoer'},400);return
-   if len(answers)>15 or any(k not in {f'{t["id"]}-{i}' for t in THEMES for i in range(5)} or type(v)!=int or v not in [1,2,3,4] for k,v in answers.items()):self.reply({'error':'ongeldige antwoorden'},400);return
+   if len(answers)>sum(len(t['questions']) for t in THEMES) or any(k not in {f'{t["id"]}-{i}' for t in THEMES for i in range(5)} or type(v)!=int or v not in [1,2,3,4] for k,v in answers.items()):self.reply({'error':'ongeldige antwoorden'},400);return
    with LOCK:
     if code!=STATE['code']:self.reply({'error':'sessiecode onjuist'},403);return
     if STATE['phase']!='reflectie':self.reply({'error':'de reflectie is gesloten'},409);return
