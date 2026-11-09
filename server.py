@@ -1,5 +1,5 @@
 """Ambitiebol: dependency-light live workshop application."""
-import io, json, os, secrets, threading, time, urllib.parse
+import io, csv, json, os, secrets, threading, time, urllib.parse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 import qrcode
@@ -55,13 +55,16 @@ THEMES=[
 ]
 
 def fresh():
- return {'code':secrets.token_hex(3).upper(),'phase':'reflectie','created':time.time(),'responses':{},'starts':{},'groups':[],'revision':0}
+ return {'code':secrets.token_hex(3).upper(),'phase':'reflectie','created':time.time(),'responses':{},'starts':{},'groups':[],'focus':[],'ambitions':{},'revision':0}
 
 def load():
  try:
   d=json.loads(DATA.read_text(encoding='utf8'))
   if isinstance(d,dict) and 'code' in d:
    d.setdefault('starts',{})
+   d.setdefault('focus',[])
+   d.setdefault('ambitions',{})
+   if d.get('phase')=='groepen':d['phase']='bespreken'
    return d
  except (OSError,ValueError): pass
  return fresh()
@@ -84,7 +87,7 @@ def summary():
  return sorted(result,key=lambda t:(t['mean'] is not None,t['mean'] or 0),reverse=True)
 
 def public():
- return {'code':STATE['code'],'phase':STATE['phase'],'revision':STATE['revision'],'themes':THEMES,'summary':summary(),'participants':len(STATE['responses']),'completed':sum(all(f'{t["id"]}-{i}' in r.get('answers',{}) for t in THEMES for i in range(5)) for r in STATE['responses'].values()),'groups':STATE['groups']}
+ return {'code':STATE['code'],'phase':STATE['phase'],'revision':STATE['revision'],'themes':THEMES,'summary':summary(),'participants':len(STATE['responses']),'completed':sum(all(f'{t["id"]}-{i}' in r.get('answers',{}) for t in THEMES for i in range(5)) for r in STATE['responses'].values()),'groups':STATE['groups'],'focus':STATE.get('focus',[]),'ambitions':STATE.get('ambitions',{})}
 
 class App(BaseHTTPRequestHandler):
  def log_message(self,fmt,*args):pass
@@ -114,6 +117,29 @@ class App(BaseHTTPRequestHandler):
   if path=='/api/export':
    if not secrets.compare_digest(urllib.parse.parse_qs(url.query).get('key',[''])[0],HOST_KEY):self.reply({'error':'geen toegang'},403);return
    with LOCK:self.reply({'state':public(),'raw':STATE});return
+  if path in ('/api/export/raw.csv','/api/export/ambities.csv'):
+   if not secrets.compare_digest(urllib.parse.parse_qs(url.query).get('key',[''])[0],HOST_KEY):self.reply({'error':'geen toegang'},403);return
+   with LOCK:
+    buf=io.StringIO();writer=csv.writer(buf,delimiter=';')
+    if path.endswith('raw.csv'):
+     writer.writerow(['deelnemer_anoniem','thema','stelling_nummer','stelling','antwoord_1_tot_4','bijgewerkt_unix'])
+     for i,(uid,resp) in enumerate(STATE['responses'].items(),1):
+      for theme in THEMES:
+       for j,question in enumerate(theme['questions']):
+        key=f"{theme['id']}-{j}"
+        if key in resp.get('answers',{}):writer.writerow([f'Deelnemer {i}',theme['name'],j+1,question,resp['answers'][key],resp.get('updated','')])
+    else:
+     writer.writerow(['thema','ambitie_nummer','concrete_ambitie','periode','aandeel_aandacht_pct'])
+     stats=summary();weights={t['id']:max(0,(t['mean'] or 1)-1) for t in stats};total=sum(weights.values())
+     for theme_id in STATE.get('focus',[]):
+      theme=next((t for t in THEMES if t['id']==theme_id),None)
+      if theme:
+       for j,note in enumerate(STATE.get('ambitions',{}).get(theme_id,[]),1):
+        if note.strip():writer.writerow([theme['name'],j,note,'Komende 8 weken',round(100*weights[theme_id]/total,2) if total else 0])
+    payload='\ufeff'+buf.getvalue()
+    name='ambitiebol_ruwe_antwoorden.csv' if path.endswith('raw.csv') else 'ambitiebol_ambities.csv'
+    data=payload.encode('utf-8');self.send_response(200);self.send_header('Content-Type','text/csv; charset=utf-8');self.send_header('Content-Disposition',f'attachment; filename="{name}"');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data)
+   return
   if path=='/health':self.reply({'ok':True});return
   self.reply({'error':'not found'},404)
  def do_POST(self):
@@ -136,19 +162,22 @@ class App(BaseHTTPRequestHandler):
     if code!=STATE['code']:self.reply({'error':'sessiecode onjuist'},403);return
     if STATE['phase']!='reflectie':self.reply({'error':'de reflectie is gesloten'},409);return
     STATE['responses'][uid]={'answers':answers,'updated':time.time()};update();self.reply({'ok':True,'count':len(answers)});return
-  if path=='/api/group':
-   with LOCK:
-    if data.get('code')!=STATE['code']:self.reply({'error':'sessiecode onjuist'},403);return
-    if STATE['phase']!='groepen':self.reply({'error':'groepsfase is gesloten'},409);return
-    record={k:str(data.get(k,'')).strip()[:1200] for k in ['group','theme','tomorrow','eightweeks','signal']}
-    if record['theme'] not in [t['id'] for t in summary()[:2]] or not record['tomorrow'] or not record['eightweeks']:self.reply({'error':'vul de actie en achtwekenafspraak in'},400);return
-    record['id']=secrets.token_hex(6);STATE['groups'].append(record);update();self.reply({'ok':True});return
   if path.startswith('/api/host/'):
    if not self.auth():self.reply({'error':'hostsleutel onjuist'},403);return
    with LOCK:
     if path=='/api/host/phase':
-     if data.get('phase') not in ('reflectie','bespreken','groepen','afgerond'):self.reply({'error':'ongeldige fase'},400);return
-     STATE['phase']=data['phase'];update()
+     if data.get('phase') not in ('reflectie','bespreken','afgerond'):self.reply({'error':'ongeldige fase'},400);return
+     requested=data['phase']
+     if requested in ('bespreken','afgerond') and not STATE.get('focus'):
+      eligible=[t['id'] for t in summary() if t['mean'] is not None]
+      STATE['focus']=eligible[:2]
+      STATE['ambitions']={t:['','',''] for t in STATE['focus']}
+     STATE['phase']=requested;update()
+    elif path=='/api/host/ambitions':
+     if STATE['phase']!='afgerond':self.reply({'error':'open eerst de afrondfase'},409);return
+     theme=data.get('theme');items=data.get('items')
+     if theme not in STATE.get('focus',[]) or not isinstance(items,list) or not 1<=len(items)<=30 or any(not isinstance(item,str) or len(item)>1500 for item in items):self.reply({'error':'ongeldige ambitie-invoer'},400);return
+     STATE.setdefault('ambitions',{})[theme]=items;update()
     elif path=='/api/host/reset':
      STATE.clear();STATE.update(fresh());update()
     else:self.reply({'error':'onbekende actie'},404);return
