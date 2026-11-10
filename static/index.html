@@ -15,8 +15,8 @@
 .presentation-mode .dashboard > div:last-child{display:none!important}
 .presentation-mode .dashboard > div:first-child{height:100%;width:100%}
 .presentation-mode .bubble-board{height:100vh;width:100vw;border-radius:0}
-@keyframes leader-pop{0%{filter:brightness(1)}45%{filter:brightness(1.25)}100%{filter:brightness(1)}}
-.bubble.pop-leader{animation:leader-pop .45s ease-out}
+100%{filter:brightness(1)}}
+
 @media(max-width:760px){.presentation-mode .bubble{zoom:1}}
 
 /* Twee focusbollen en invulvelden voor de afsluiting */
@@ -27,30 +27,33 @@
 .presentation-mode:has(.editor-grid) #app > section:nth-child(2){display:block!important;position:relative;inset:auto;margin:0;padding:20px;border-radius:20px;background:white;box-shadow:none}
 .presentation-mode:has(.editor-grid) .editor-circle{width:min(100%,310px)}
 @media(max-width:760px){.editor-grid{grid-template-columns:1fr}.focus-board{height:400px}.focus-bubble strong{font-size:14px}.focus-bubble span{font-size:10px}}
-/* v6: overdrive effects */
+/* v7 — leesbare meeschalende tekst, antwoord-pop en tekstgolf; geen glow. */
 .bubble-board{isolation:isolate;background:radial-gradient(ellipse at 50% 45%,#204b70 0%,#10243e 59%,#091525 100%)}
-.bubble{transition:width .9s cubic-bezier(.18,1.55,.24,1),height .9s cubic-bezier(.18,1.55,.24,1),left 1.05s cubic-bezier(.18,1.15,.24,1),top 1.05s cubic-bezier(.18,1.15,.24,1),opacity .7s ease,filter .6s ease;will-change:width,height,left,top}
-.bubble.leader{z-index:7;box-shadow:inset -25px -25px 50px #0003,0 0 28px 12px #b6e5ff88,0 0 75px 13px #8e90ff57;animation:overdriveBreath 3.2s ease-in-out infinite alternate}
-.bubble.runner{z-index:5;box-shadow:inset -20px -20px 40px #0003,0 0 26px 4px #d2edff55}
-.bubble.distant{opacity:.8}
-.bubble-board[data-mode="rustig"] .bubble{animation:none!important;box-shadow:inset -14px -20px 40px #0002,0 12px 35px #0003;transition-timing-function:ease}
-.bubble-board[data-mode="dynamisch"] .bubble.leader{box-shadow:inset -20px -20px 40px #0002,0 0 20px 6px #b6e5ff66}
-.bubble-board[data-mode="overdrive"] .bubble.leader{filter:saturate(1.25) brightness(1.12)}
-@keyframes overdriveBreath{0%{filter:brightness(1) saturate(1.08)}100%{filter:brightness(1.17) saturate(1.2)}}
-@keyframes dramaticCrown{0%{box-shadow:0 0 0 2px #fff9,0 0 35px 20px #fff9}100%{box-shadow:0 0 25px 10px #aedbff66}}
-.bubble.pop-leader{animation:dramaticCrown .85s ease-out,overdriveBreath 3.2s ease-in-out .85s infinite alternate}
+.bubble{transition:width .9s cubic-bezier(.18,1.55,.24,1),height .9s cubic-bezier(.18,1.55,.24,1),left 1.05s cubic-bezier(.18,1.15,.24,1),top 1.05s cubic-bezier(.18,1.15,.24,1),opacity .7s ease;will-change:width,height,left,top;box-shadow:inset -18px -23px 42px #0003,0 12px 26px #0003}
+.bubble.leader{z-index:7;box-shadow:inset -25px -25px 52px #0003,0 12px 26px #0003}
+.bubble.runner{z-index:5;box-shadow:inset -20px -20px 42px #0003,0 12px 26px #0003}
+.bubble.distant{opacity:.85}
+.bubble-board[data-mode="rustig"] .bubble{transition-timing-function:ease}
+.bubble strong.bubble-title{font-size:var(--label-size,18px);line-height:1.14;letter-spacing:-.025em;font-weight:800;width:100%;max-width:96%;overflow-wrap:anywhere;text-wrap:balance;transition:font-size .9s cubic-bezier(.18,1.15,.24,1)}
+.bubble .bubble-caption{font-size:var(--caption-size,11px);line-height:1.17;margin-top:clamp(2px,1vw,9px);color:#fffde8;transition:font-size .9s cubic-bezier(.18,1.15,.24,1)}
+.bubble-title .wave-char{display:inline-block;white-space:pre;will-change:transform;font-size:inherit;margin-top:0;color:inherit;line-height:inherit}
+.bubble.focus-bubble strong.bubble-title{font-size:var(--label-size,28px)}
+.bubble.focus-bubble .bubble-caption{font-size:var(--caption-size,15px)}
 .mode-picker{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .mode-picker button{padding:9px 12px;border-radius:10px;border:1px solid #cbdde9;background:#edf4f8;color:#204359;font-weight:700}
 .mode-picker button.active{background:#173d62;color:white;border-color:#173d62}
 .mode-picker button[data-mode="overdrive"].active{background:#6439ab;color:white}
 .presentation-mode .mode-picker{display:none}
-@media(prefers-reduced-motion:reduce){.bubble,.bubble.leader,.bubble.pop-leader{transition:none!important;animation:none!important}}
+/* Replaces the older fixed 12px mobile lettering. Layout engine scales to each bubble. */
+@media(max-width:760px){.bubble{zoom:1}.bubble strong.bubble-title{font-size:var(--label-size,14px)}.bubble span.bubble-caption{font-size:var(--caption-size,10px)}}
+@media(prefers-reduced-motion:reduce){.bubble,.bubble.leader,.bubble.pop-leader,.bubble-title,.bubble .bubble-caption{transition:none!important;animation:none!important}}
 </style></head><body><header><div><h1>◉ De Ambitiebol</h1><small>Van gedeelde ambitie naar zichtbaar handelen · 2026–2027</small></div><span id="statusChip" class="chip">Verbinden...</span></header><main id="app" class="container"></main><div id="toast" role="status"></div><div id="presentationToolbar" class="hidden"><span>◉ De Ambitiebol · Live</span><button class="btn secondary" id="soundToggle">🔇 Geluid uit</button><button class="btn secondary" id="exitFullscreen">⛶ Sluiten</button></div><footer>Een kleine bol betekent niet dat een onderwerp onbelangrijk is. We onderzoeken waar de komende acht weken extra aandacht gewenst is.</footer><script>
 const $=(q)=>document.querySelector(q), esc=(s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const storage='ambitiebol-user', params=new URLSearchParams(location.search), host=location.pathname==='/host',hostKey=params.get('key')||sessionStorage.getItem('hostKey')||'';
 if(hostKey&&host)sessionStorage.setItem('hostKey',hostKey);
 const uid=(()=>{let v=localStorage.getItem(storage);if(!v){v=crypto.randomUUID();localStorage.setItem(storage,v)}return v})();
 let state=null, answers={},themeIndex=0,lastRev=-1,details='',startThemeIndex=null,assigningStart=false,leaderId=null,soundEnabled=false,audioCtx=null;
+let pendingPops=[]; // Themen waarvoor sinds de vorige poll een antwoord is gewijzigd.
 let noteDraft={}, noteTimer=null, editingNotes=false;
 const bubbleSizes={};
 let persistedCode='';
@@ -66,7 +69,54 @@ const top2=()=>{const ids=state.focus?.length?state.focus:state.summary.filter(t
 const joinUrl=()=>location.origin+'/join?code='+encodeURIComponent(state.code);
 function toast(msg){$('#toast').textContent=msg;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',3600)}
 async function api(path,data,auth=false){const res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{'X-Host-Key':hostKey}:{})},body:JSON.stringify(data)});let r=await res.json();if(!res.ok)throw Error(r.error||'Er ging iets mis');return r}
-async function poll(){try{const r=await fetch('/api/state',{cache:'no-store'});let incoming=await r.json();let changed=incoming.revision!==lastRev;state=incoming;restore(state.code);$('#statusChip').textContent=`${({reflectie:'Individuele reflectie',bespreken:'Samen bespreken',afgerond:'Afgerond'})[state.phase]||'Actief'} · ${state.participants} deelnemers`;if(changed){lastRev=state.revision;if(!(host&&state.phase==='afgerond'&&(editingNotes||document.activeElement?.matches('.note-field'))))render();if(host)checkLeader()}if(!host&&state.phase==='reflectie'&&params.get('code')===state.code&&startThemeIndex===null&&!assigningStart)assignStart()}catch(e){$('#statusChip').textContent='Verbinding onderbroken'}}
+// Vergelijk ook verdelingen per vraag: een gewijzigd cijfer kan hetzelfde themagemiddelde behouden.
+function changedThemes(previous,current){
+ const before=new Map((previous.summary||[]).map(t=>[t.id,t]));
+ return (current.summary||[]).filter(t=>{
+  const old=before.get(t.id);
+  if(!old)return false;
+  return (t.questions||[]).some((q,i)=>JSON.stringify(q.distribution)!==JSON.stringify(old.questions?.[i]?.distribution));
+ }).map(t=>t.id);
+}
+function labelWave(text){return [...String(text)].map((ch,i)=>`<span class="wave-char" style="--char-index:${i}">${esc(ch)}</span>`).join('')}
+function typographyForDiameter(d,short){
+ const compact=short.length>17?.74:short.length>12?.83:1;
+ return {label:Math.max(10,Math.min(55,d*.115*compact)),caption:Math.max(9,Math.min(22,d*.052))};
+}
+function applyBubbleTypography(el,diameter){
+ const label=el.dataset.label||'';
+ const values=typographyForDiameter(diameter,label);
+ el.style.setProperty('--label-size',values.label.toFixed(1)+'px');
+ el.style.setProperty('--caption-size',values.caption.toFixed(1)+'px');
+}
+// Web Animations transform overlays the normal positioning without changing final dimensions.
+function animateAnswerPops(){
+ const themes=[...new Set(pendingPops)];pendingPops=[];
+ if(!host||state?.phase!=='reflectie'||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const boardEl=document.querySelector('.bubble-board');if(!boardEl)return;
+ const durations={rustig:460,dynamisch:580,overdrive:680};
+ for(const id of themes){
+  const el=[...boardEl.querySelectorAll('.bubble')].find(b=>b.dataset.theme===id);
+  if(!el)continue;
+  // Iedere nieuwe reactie krijgt een duidelijke snelle groei, gevolgd door terugveren.
+  const peak=visualMode==='overdrive'?1.28:visualMode==='dynamisch'?1.20:1.13;
+  el.animate([
+   {transform:'translate(-50%, -50%) scale(1)',offset:0},
+   {transform:`translate(-50%, -50%) scale(${peak})`,offset:.25},
+   {transform:'translate(-50%, -50%) scale(.965)',offset:.73},
+   {transform:'translate(-50%, -50%) scale(1)',offset:1}
+  ],{duration:durations[visualMode],easing:'ease-out'});
+  const chars=el.querySelectorAll('.bubble-title .wave-char');
+  const stagger=Math.min(20,240/Math.max(1,chars.length));
+  chars.forEach((char,i)=>char.animate([
+   {transform:'translateY(0) rotate(0deg)',offset:0},
+   {transform:'translateY(-.27em) rotate(-4deg)',offset:.35},
+   {transform:'translateY(.09em) rotate(2deg)',offset:.73},
+   {transform:'translateY(0) rotate(0deg)',offset:1}
+  ],{duration:460,delay:i*stagger,easing:'cubic-bezier(.2,.8,.2,1)'}));
+ }
+}
+async function poll(){try{const r=await fetch('/api/state',{cache:'no-store'});let incoming=await r.json();let changed=incoming.revision!==lastRev;const oldState=state;pendingPops=(host&&oldState&&oldState.code===incoming.code&&oldState.phase==='reflectie'&&incoming.phase==='reflectie')?changedThemes(oldState,incoming):[];state=incoming;restore(state.code);$('#statusChip').textContent=`${({reflectie:'Individuele reflectie',bespreken:'Samen bespreken',afgerond:'Afgerond'})[state.phase]||'Actief'} · ${state.participants} deelnemers`;if(changed){lastRev=state.revision;if(!(host&&state.phase==='afgerond'&&(editingNotes||document.activeElement?.matches('.note-field'))))render();if(host)checkLeader()}if(!host&&state.phase==='reflectie'&&params.get('code')===state.code&&startThemeIndex===null&&!assigningStart)assignStart()}catch(e){$('#statusChip').textContent='Verbinding onderbroken'}}
 
 async function assignStart(){
  assigningStart=true;
@@ -81,7 +131,7 @@ function latestLeader(){
 }
 function checkLeader(){
  const next=latestLeader();if(next!==leaderId){leaderId=next;
-  if(next){document.querySelectorAll(`.bubble[data-theme="${next}"]`).forEach(b=>{b.classList.remove('pop-leader');void b.offsetWidth;b.classList.add('pop-leader')});playPlop()}
+  if(next){playPlop()}
  }
 }
 function playPlop(){
@@ -129,11 +179,11 @@ function board(onlyFocus=false){
 function bubbleHtml(t,i,shares){
  const share=shares[t.id],hasAnswers=t.mean!==null;
  const loc=bubblePositions[t.id]||bubbleSeeds[i];
- return `<div class="bubble ${!hasAnswers?'hollow':''}" data-theme="${t.id}" data-share="${share}" style="width:${bubbleSizes[t.id]||75}px;height:${bubbleSizes[t.id]||75}px;left:${100*loc[0]}%;top:${100*loc[1]}%;background:${t.color}"><strong>${esc(t.short)}</strong><span>${hasAnswers?`${share.toFixed(1)}% aandacht`:'Nog geen antwoorden'}</span></div>`;
+ return `<div class="bubble ${!hasAnswers?'hollow':''}" data-theme="${t.id}" data-label="${esc(t.short)}" data-share="${share}" style="width:${bubbleSizes[t.id]||75}px;height:${bubbleSizes[t.id]||75}px;left:${100*loc[0]}%;top:${100*loc[1]}%;background:${t.color}"><strong class="bubble-title">${labelWave(t.short)}</strong><span class="bubble-caption">${hasAnswers?`${share.toFixed(1)}% aandacht`:'Nog geen antwoorden'}</span></div>`;
 }
 function focusBubbleHtml(t,i,shares){
  const share=shares[t.id],diameter=300;
- return `<div class="bubble focus-bubble" data-theme="${t.id}" data-size="${diameter}" style="width:${diameter}px;height:${diameter}px;left:${i===0?27:73}%;top:50%;background:${t.color}"><strong>${esc(t.name)}</strong><span>${share.toFixed(1)}% van de extra aandacht</span></div>`;
+ return `<div class="bubble focus-bubble" data-theme="${t.id}" data-label="${esc(t.name)}" data-size="${diameter}" style="width:${diameter}px;height:${diameter}px;left:${i===0?27:73}%;top:50%;background:${t.color}"><strong class="bubble-title">${esc(t.name)}</strong><span class="bubble-caption">${share.toFixed(1)}% van de extra aandacht</span></div>`;
 }
 function animateBubbles(){
  const boardEl=document.querySelector('.bubble-board');
@@ -141,7 +191,7 @@ function animateBubbles(){
  const bubbles=[...boardEl.querySelectorAll('.bubble')];
  if(!bubbles.length)return;
  if(bubbles.every(b=>b.classList.contains('focus-bubble'))){
-  requestAnimationFrame(()=>bubbles.forEach(el=>{const d=Math.round(Math.min(boardEl.clientWidth*.43,boardEl.clientHeight*.72,390));el.style.width=d+'px';el.style.height=d+'px'}));return;
+  requestAnimationFrame(()=>bubbles.forEach(el=>{const d=Math.round(Math.min(boardEl.clientWidth*.43,boardEl.clientHeight*.72,390));el.style.width=d+'px';el.style.height=d+'px';applyBubbleTypography(el,d)}));return;
  }
  const shares=attentionShares(),weights=visualWeights(shares);
  const bw=boardEl.clientWidth,bh=boardEl.clientHeight;
@@ -188,7 +238,7 @@ function animateBubbles(){
  }
  requestAnimationFrame(()=>candidates.forEach(c=>{
   const el=c.el;
-  el.style.width=c.diameter+'px';el.style.height=c.diameter+'px';
+  el.style.width=c.diameter+'px';el.style.height=c.diameter+'px';applyBubbleTypography(el,c.diameter);
   el.style.left=(100*c.x/bw)+'%';el.style.top=(100*c.y/bh)+'%';
   el.classList.toggle('leader',c.id===leader&&shares[c.id]>0);
   el.classList.toggle('runner',c.id===runner&&shares[c.id]>0);
@@ -234,6 +284,8 @@ function renderHost(){
  const joining=`<section class="card"><div class="row"><div><h3>Deelnemen via QR-code of link</h3><p><a href="${joinUrl()}" target="_blank" rel="noopener">${esc(joinUrl())}</a></p><button class="btn secondary" id="copyLink">Kopieer deelnemerslink</button></div><img class="qr" src="/api/qr?url=${encodeURIComponent(joinUrl())}" alt="QR-code voor de deelnemerslink"></div></section>`;
  root.innerHTML=content+(!focused?joining:'')+controls;
  animateBubbles();
+ // Plan de pop nadat de nieuwe DOM-elementen en hun doelmaten zijn gezet.
+ requestAnimationFrame(()=>requestAnimationFrame(animateAnswerPops));
  document.querySelectorAll('button[data-mode]').forEach(btn=>btn.onclick=()=>{visualMode=btn.dataset.mode;localStorage.setItem('ambitiebol-visual-mode',visualMode);renderHost()});
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{details=b.dataset.detail;renderHost()});document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{details=b.dataset.theme;renderHost()});$('#hideDetail')?.addEventListener('click',()=>{details='';renderHost()});
  $('#goFullscreen')?.addEventListener('click',togglePresentation);$('#copyLink')?.addEventListener('click',()=>{navigator.clipboard.writeText(joinUrl()).then(()=>toast('Link gekopieerd')).catch(()=>toast('Kopiëren lukte niet'))});
