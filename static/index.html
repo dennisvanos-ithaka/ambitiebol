@@ -27,7 +27,7 @@
 .presentation-mode:has(.editor-grid) #app > section:nth-child(2){display:block!important;position:relative;inset:auto;margin:0;padding:20px;border-radius:20px;background:white;box-shadow:none}
 .presentation-mode:has(.editor-grid) .editor-circle{width:min(100%,310px)}
 @media(max-width:760px){.editor-grid{grid-template-columns:1fr}.focus-board{height:400px}.focus-bubble strong{font-size:14px}.focus-bubble span{font-size:10px}}
-/* v7 — leesbare meeschalende tekst, antwoord-pop en tekstgolf; geen glow. */
+/* v9 — bol-pop en synchrone snelle stuurwielbeweging van het hele woord; geen glow. */
 .bubble-board{isolation:isolate;background:radial-gradient(ellipse at 50% 45%,#204b70 0%,#10243e 59%,#091525 100%)}
 .bubble{transition:width .9s cubic-bezier(.18,1.55,.24,1),height .9s cubic-bezier(.18,1.55,.24,1),left 1.05s cubic-bezier(.18,1.15,.24,1),top 1.05s cubic-bezier(.18,1.15,.24,1),opacity .7s ease;will-change:width,height,left,top;box-shadow:inset -18px -23px 42px #0003,0 12px 26px #0003}
 .bubble.leader{z-index:7;box-shadow:inset -25px -25px 52px #0003,0 12px 26px #0003}
@@ -36,7 +36,7 @@
 .bubble-board[data-mode="rustig"] .bubble{transition-timing-function:ease}
 .bubble strong.bubble-title{font-size:var(--label-size,18px);line-height:1.14;letter-spacing:-.025em;font-weight:800;width:100%;max-width:96%;overflow-wrap:anywhere;text-wrap:balance;transition:font-size .9s cubic-bezier(.18,1.15,.24,1)}
 .bubble .bubble-caption{font-size:var(--caption-size,11px);line-height:1.17;margin-top:clamp(2px,1vw,9px);color:#fffde8;transition:font-size .9s cubic-bezier(.18,1.15,.24,1)}
-.bubble-title .wave-char{display:inline-block;white-space:pre;will-change:transform;font-size:inherit;margin-top:0;color:inherit;line-height:inherit}
+.bubble .bubble-title{display:block;transform-origin:50% 50%;will-change:transform;backface-visibility:hidden}
 .bubble.focus-bubble strong.bubble-title{font-size:var(--label-size,28px)}
 .bubble.focus-bubble .bubble-caption{font-size:var(--caption-size,15px)}
 .mode-picker{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
@@ -78,7 +78,7 @@ function changedThemes(previous,current){
   return (t.questions||[]).some((q,i)=>JSON.stringify(q.distribution)!==JSON.stringify(old.questions?.[i]?.distribution));
  }).map(t=>t.id);
 }
-function labelWave(text){return [...String(text)].map((ch,i)=>`<span class="wave-char" style="--char-index:${i}">${esc(ch)}</span>`).join('')}
+function labelWave(text){return esc(text)} // v8: the entire word swings together.
 function typographyForDiameter(d,short){
  const compact=short.length>17?.74:short.length>12?.83:1;
  return {label:Math.max(10,Math.min(55,d*.115*compact)),caption:Math.max(9,Math.min(22,d*.052))};
@@ -106,14 +106,19 @@ function animateAnswerPops(){
    {transform:'translate(-50%, -50%) scale(.965)',offset:.73},
    {transform:'translate(-50%, -50%) scale(1)',offset:1}
   ],{duration:durations[visualMode],easing:'ease-out'});
-  const chars=el.querySelectorAll('.bubble-title .wave-char');
-  const stagger=Math.min(20,240/Math.max(1,chars.length));
-  chars.forEach((char,i)=>char.animate([
-   {transform:'translateY(0) rotate(0deg)',offset:0},
-   {transform:'translateY(-.27em) rotate(-4deg)',offset:.35},
-   {transform:'translateY(.09em) rotate(2deg)',offset:.73},
-   {transform:'translateY(0) rotate(0deg)',offset:1}
-  ],{duration:460,delay:i*stagger,easing:'cubic-bezier(.2,.8,.2,1)'}));
+  // Hele woord slingert links -> rechts -> links -> neutraal.
+  // Gebruik dezelfde duur als de pop van de bol: één synchroon effect.
+  const title=el.querySelector('.bubble-title');
+  if(title){
+   title.getAnimations().forEach(a=>a.cancel());
+   title.animate([
+    {transform:'rotate(0deg)',offset:0},
+    {transform:'rotate(-45deg)',offset:.22},
+    {transform:'rotate(45deg)',offset:.51},
+    {transform:'rotate(-26deg)',offset:.77},
+    {transform:'rotate(0deg)',offset:1}
+   ],{duration:durations[visualMode],easing:'ease-in-out'});
+  }
  }
 }
 async function poll(){try{const r=await fetch('/api/state',{cache:'no-store'});let incoming=await r.json();let changed=incoming.revision!==lastRev;const oldState=state;pendingPops=(host&&oldState&&oldState.code===incoming.code&&oldState.phase==='reflectie'&&incoming.phase==='reflectie')?changedThemes(oldState,incoming):[];state=incoming;restore(state.code);$('#statusChip').textContent=`${({reflectie:'Individuele reflectie',bespreken:'Samen bespreken',afgerond:'Afgerond'})[state.phase]||'Actief'} · ${state.participants} deelnemers`;if(changed){lastRev=state.revision;if(!(host&&state.phase==='afgerond'&&(editingNotes||document.activeElement?.matches('.note-field'))))render();if(host)checkLeader()}if(!host&&state.phase==='reflectie'&&params.get('code')===state.code&&startThemeIndex===null&&!assigningStart)assignStart()}catch(e){$('#statusChip').textContent='Verbinding onderbroken'}}
