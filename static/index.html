@@ -52,7 +52,8 @@ const $=(q)=>document.querySelector(q), esc=(s)=>String(s??'').replace(/[&<>"']/
 const storage='ambitiebol-user', params=new URLSearchParams(location.search), host=location.pathname==='/host',hostKey=params.get('key')||sessionStorage.getItem('hostKey')||'';
 if(hostKey&&host)sessionStorage.setItem('hostKey',hostKey);
 const uid=(()=>{let v=localStorage.getItem(storage);if(!v){v=crypto.randomUUID();localStorage.setItem(storage,v)}return v})();
-let state=null, answers={},themeIndex=0,lastRev=-1,details='',startThemeIndex=null,assigningStart=false,leaderId=null,soundEnabled=false,audioCtx=null;
+let state=null, answers={},questionIndex=0,lastRev=-1,details='',startThemeIndex=null,assigningStart=false,leaderId=null,soundEnabled=false,audioCtx=null;
+let questionOrder=[],answerQueue=Promise.resolve(),surveyFinished=false;
 let pendingPops=[]; // Themen waarvoor sinds de vorige poll een antwoord is gewijzigd.
 let noteDraft={}, noteTimer=null, editingNotes=false;
 const bubbleSizes={};
@@ -61,7 +62,33 @@ let visualMode=localStorage.getItem('ambitiebol-visual-mode')||'overdrive';
 if(!['rustig','dynamisch','overdrive'].includes(visualMode))visualMode='overdrive';
 const motionDisabled=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const bubblePositions={};
-function restore(code){if(persistedCode===code)return;persistedCode=code;startThemeIndex=null;themeIndex=0;leaderId=null;try{answers=JSON.parse(localStorage.getItem('ambitie-answers-'+code+'-'+uid)||'{}')}catch(e){answers={}}}
+function restore(code){
+ if(persistedCode===code)return;
+ persistedCode=code;startThemeIndex=null;questionIndex=0;leaderId=null;questionOrder=[];
+ try{answers=JSON.parse(localStorage.getItem('ambitie-answers-'+code+'-'+uid)||'{}')}catch(e){answers={}}
+ try{questionIndex=Number(localStorage.getItem('ambitie-question-index-'+code+'-'+uid)||0)||0}catch(e){questionIndex=0}
+ surveyFinished=localStorage.getItem('ambitie-finished-'+code+'-'+uid)==='true';
+}
+function shuffledQuestions(){
+ const all=state.themes.flatMap(t=>t.questions.map((question,i)=>({key:t.id+'-'+i,question})));
+ const keys=all.map(q=>q.key).sort().join('|');
+ const storageKey='ambitie-question-order-'+state.code+'-'+uid;
+ let saved;
+ try{saved=JSON.parse(localStorage.getItem(storageKey)||'null')}catch(e){saved=null}
+ if(!Array.isArray(saved)||saved.length!==all.length||new Set(saved).size!==all.length||saved.some(k=>!all.some(q=>q.key===k))){
+  // Stabiele pseudorandom Fisher-Yates shuffle per deelnemer én sessie.
+  // Gebruik een deterministische PRNG zodat een herladen pagina dezelfde volgorde houdt.
+  let seed=(Math.floor(hashUnit(uid+'|'+state.code+'|'+keys)*4294967295)||1)>>>0;
+  const next=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/4294967296};
+  saved=all.map(q=>q.key);
+  for(let i=saved.length-1;i>0;i--){const j=Math.floor(next()*(i+1));[saved[i],saved[j]]=[saved[j],saved[i]]}
+  localStorage.setItem(storageKey,JSON.stringify(saved));
+ }
+ const byKey=new Map(all.map(q=>[q.key,q]));
+ return saved.map(k=>byKey.get(k));
+}
+function rememberQuestionIndex(){if(state)localStorage.setItem('ambitie-question-index-'+state.code+'-'+uid,String(questionIndex))}
+
 function remember(){if(state)localStorage.setItem('ambitie-answers-'+state.code+'-'+uid,JSON.stringify(answers))}
 
 const rateNames=['Geen extra aandacht','Af en toe aandacht','Gerichte aandacht','Hoge ontwikkelbehoefte'];
@@ -147,10 +174,10 @@ async function poll(){try{const r=await fetch('/api/state',{cache:'no-store'});l
 
 async function assignStart(){
  assigningStart=true;
- try{let a=await api('start',{uid,code:state.code});startThemeIndex=a.start;themeIndex=0;render()}
+ try{let a=await api('start',{uid,code:state.code});startThemeIndex=a.start;questionOrder=shuffledQuestions();questionIndex=Math.max(0,Math.min(questionIndex,questionOrder.length-1));render()}
  catch(e){toast('Startthema ophalen mislukt: '+e.message)}finally{assigningStart=false}
 }
-function activeTheme(){return state.themes[(startThemeIndex+themeIndex)%state.themes.length]}
+// Deelnemers zien geen themagroepen; de themakoppeling blijft alleen in de verborgen antwoordsleutels.
 function latestLeader(){
  if(!state||!state.summary)return null;
  const shares=attentionShares();const arr=[...state.summary].sort((a,b)=>shares[b.id]-shares[a.id]);
@@ -321,14 +348,54 @@ function renderHost(){
  for(const [id,path] of [['exportNotes','ambities.csv'],['exportRaw','raw.csv'],['exportJson','']]){$('#'+id).onclick=async()=>{if(editingNotes){clearTimeout(noteTimer);for(const theme of Object.keys(noteDraft))await saveNotes(theme)}window.open((path?'/api/export/'+path:'/api/export')+'?key='+encodeURIComponent(hostKey),'_blank')}}
  if(state.phase==='afgerond')setupNotes();
 }
-function renderParticipant(){let root=$('#app'),code=params.get('code');if(code!==state.code){root.innerHTML=`<section class="card">${heading('Welkom bij de Ambitiebol','Scan de QR-code van je gespreksleider om deel te nemen.')}<label class="label">Sessiecode</label><input class="field" id="codeInput" placeholder="Bijvoorbeeld A3B4C5" value="${esc(code||'')}"><button class="btn" id="enter">Deelnemen</button></section>`;$('#enter').onclick=()=>{location.href='/join?code='+encodeURIComponent($('#codeInput').value.trim().toUpperCase())};return}
- if(state.phase==='reflectie'){if(startThemeIndex===null){root.innerHTML='<section class="card"><h2>Je startthema wordt klaargezet…</h2></section>';return}let t=activeTheme();let count=Object.keys(answers).length;root.innerHTML=`<section class="card">${heading('Wat verdient extra aandacht?','Denk aan de komende acht weken. Een lage score betekent niet dat het onderwerp onbelangrijk is.')}
- <div class="row"><span class="pill">Thema ${themeIndex+1} van ${state.themes.length} · ${esc(t.name)}</span><span class="muted tiny">${count}/${state.themes.reduce((n,t)=>n+t.questions.length,0)} ingevuld</span></div><div class="progress"><div style="width:${100*count/state.themes.reduce((n,t)=>n+t.questions.length,0)}%"></div></div>
- ${t.questions.map((q,i)=>{let k=t.id+'-'+i;return `<div class="question"><strong>${i+1}. ${esc(q)}</strong><div class="rating">${rateNames.map((txt,n)=>`<button aria-pressed="${answers[k]===n+1}" data-key="${k}" data-value="${n+1}" class="${answers[k]===n+1?'selected':''}">${n+1}<span>${txt}</span></button>`).join('')}</div></div>`}).join('')}
- <div class="actions" style="justify-content:space-between"><button class="btn secondary" id="prev" ${themeIndex===0?'disabled':''}>Vorige</button><button class="btn" id="next">${themeIndex===state.themes.length-1?'Afronden':'Volgend thema'} →</button></div><p class="muted tiny">Je kunt je antwoorden tijdens de reflectie wijzigen. Ze worden automatisch opgeslagen.</p></section>`;
- document.querySelectorAll('[data-key]').forEach(b=>b.onclick=async()=>{answers[b.dataset.key]=Number(b.dataset.value);remember();renderParticipant();try{await api('answer',{uid,code:state.code,answers})}catch(e){toast('Opslaan mislukt: '+e.message)}});$('#prev').onclick=()=>{themeIndex=Math.max(0,themeIndex-1);renderParticipant()};$('#next').onclick=()=>{let done=t.questions.every((q,i)=>answers[t.id+'-'+i]);if(!done){toast('Beantwoord eerst de vijf stellingen van dit thema');return}if(themeIndex<state.themes.length-1){themeIndex++;renderParticipant()}else if(count===state.themes.reduce((n,t)=>n+t.questions.length,0)){root.innerHTML=`<section class="card" style="text-align:center"><h2 class="intro">Bedankt voor je reflectie!</h2><p>Je antwoorden zijn opgeslagen. Je gespreksleider laat de bollen zien.</p><button class="btn secondary" id="edit">Antwoorden aanpassen</button></section>`;$('#edit').onclick=()=>{themeIndex=0;renderParticipant()}}};return}
- if(state.phase==='bespreken'){root.innerHTML=`<section class="card" style="text-align:center">${heading('Bollen bespreken','Vorm groepjes van vier. Kies één van de twee uitgelichte thema’s en formuleer drie haalbare ambities voor de komende acht weken.')}${focusInstructions()}<div style="max-width:650px;margin:auto">${board(true)}</div></section>`;animateBubbles();return}
- root.innerHTML=`<section class="card">${heading('Dank voor jullie bijdrage','De gespreksleider verzamelt nu de concrete ambities die de groepjes delen.')}</section>`}
+function renderParticipant(){
+ const root=$('#app'),code=params.get('code');
+ if(code!==state.code){
+  root.innerHTML=`<section class="card">${heading('Welkom bij de Ambitiebol','Scan de QR-code van je gespreksleider om deel te nemen.')}<label class="label">Sessiecode</label><input class="field" id="codeInput" placeholder="Bijvoorbeeld A3B4C5" value="${esc(code||'')}"><button class="btn" id="enter">Deelnemen</button></section>`;
+  $('#enter').onclick=()=>{location.href='/join?code='+encodeURIComponent($('#codeInput').value.trim().toUpperCase())};return;
+ }
+ if(state.phase==='reflectie'){
+  if(startThemeIndex===null){root.innerHTML='<section class="card"><h2>Je vragenlijst wordt klaargezet…</h2></section>';return}
+  if(!questionOrder.length)questionOrder=shuffledQuestions();
+  const total=questionOrder.length;
+  const count=questionOrder.filter(q=>answers[q.key]>=1&&answers[q.key]<=4).length;
+  if(questionIndex>=total)questionIndex=total-1;
+  const current=questionOrder[questionIndex];
+  if(surveyFinished&&count===total){
+   root.innerHTML=`<section class="card" style="text-align:center"><h2 class="intro">Bedankt voor je reflectie!</h2><p>Je antwoorden zijn opgeslagen. Je gespreksleider laat de bollen zien.</p><button class="btn secondary" id="edit">Antwoorden aanpassen</button></section>`;
+   $('#edit').onclick=()=>{surveyFinished=false;localStorage.removeItem('ambitie-finished-'+state.code+'-'+uid);questionIndex=0;rememberQuestionIndex();renderParticipant()};return;
+  }
+  root.innerHTML=`<section class="card">${heading('Wat verdient extra aandacht?','Denk aan de komende acht weken. Een lage score betekent niet dat het onderwerp onbelangrijk is.')}
+   <div class="row"><span class="pill">Stelling ${questionIndex+1} van ${total}</span><span class="muted tiny">${count}/${total} ingevuld</span></div>
+   <div class="progress"><div style="width:${100*count/total}%"></div></div>
+   <div class="question"><strong>${esc(current.question)}</strong><div class="rating">${rateNames.map((txt,n)=>`<button aria-pressed="${answers[current.key]===n+1}" data-key="${current.key}" data-value="${n+1}" class="${answers[current.key]===n+1?'selected':''}">${n+1}<span>${txt}</span></button>`).join('')}</div></div>
+   <div class="actions" style="justify-content:space-between"><button class="btn secondary" id="prev" ${questionIndex===0?'disabled':''}>← Vorige</button><button class="btn" id="next">${questionIndex===total-1?'Afronden':'Volgende →'}</button></div>
+   <p class="muted tiny">Alle stellingen staan in willekeurige volgorde. Je kunt eerdere antwoorden aanpassen; ze worden automatisch opgeslagen.</p></section>`;
+  document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>{
+   const key=b.dataset.key,previous=answers[key];
+   answers[key]=Number(b.dataset.value);remember();renderParticipant();
+   const snapshot={...answers};
+   // De volledige antwoordset moet in volgorde worden opgeslagen, anders kan een
+   // vertraagd netwerkantwoord nieuwere scores overschrijven.
+   answerQueue=answerQueue.catch(()=>{}).then(async()=>{
+    try{await api('answer',{uid,code:state.code,answers:snapshot})}
+    catch(e){toast('Opslaan mislukt: '+e.message)}
+   });
+  });
+  $('#prev').onclick=()=>{questionIndex=Math.max(0,questionIndex-1);rememberQuestionIndex();renderParticipant()};
+  $('#next').onclick=()=>{
+   if(!answers[current.key]){toast('Beantwoord eerst deze stelling');return}
+   if(questionIndex<total-1){questionIndex++;rememberQuestionIndex();renderParticipant();return}
+   if(count!==total){const firstMissing=questionOrder.findIndex(q=>!answers[q.key]);questionIndex=Math.max(0,firstMissing);rememberQuestionIndex();toast('Beantwoord eerst alle stellingen');renderParticipant();return}
+   surveyFinished=true;localStorage.setItem('ambitie-finished-'+state.code+'-'+uid,'true');renderParticipant();
+  };
+  return;
+ }
+ if(state.phase==='bespreken'){
+  root.innerHTML=`<section class="card" style="text-align:center">${heading('Bollen bespreken','Vorm groepjes van vier. Kies één van de twee uitgelichte thema’s en formuleer drie haalbare ambities voor de komende acht weken.')}${focusInstructions()}<div style="max-width:650px;margin:auto">${board(true)}</div></section>`;animateBubbles();return;
+ }
+ root.innerHTML=`<section class="card">${heading('Dank voor jullie bijdrage','De gespreksleider verzamelt nu de concrete ambities die de groepjes delen.')}</section>`;
+}
 
 function render(){if(!state)return;if(host){renderHost();return}
 renderParticipant();
