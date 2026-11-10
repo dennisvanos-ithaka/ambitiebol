@@ -27,6 +27,24 @@
 .presentation-mode:has(.editor-grid) #app > section:nth-child(2){display:block!important;position:relative;inset:auto;margin:0;padding:20px;border-radius:20px;background:white;box-shadow:none}
 .presentation-mode:has(.editor-grid) .editor-circle{width:min(100%,310px)}
 @media(max-width:760px){.editor-grid{grid-template-columns:1fr}.focus-board{height:400px}.focus-bubble strong{font-size:14px}.focus-bubble span{font-size:10px}}
+/* v6: overdrive effects */
+.bubble-board{isolation:isolate;background:radial-gradient(ellipse at 50% 45%,#204b70 0%,#10243e 59%,#091525 100%)}
+.bubble{transition:width .9s cubic-bezier(.18,1.55,.24,1),height .9s cubic-bezier(.18,1.55,.24,1),left 1.05s cubic-bezier(.18,1.15,.24,1),top 1.05s cubic-bezier(.18,1.15,.24,1),opacity .7s ease,filter .6s ease;will-change:width,height,left,top}
+.bubble.leader{z-index:7;box-shadow:inset -25px -25px 50px #0003,0 0 28px 12px #b6e5ff88,0 0 75px 13px #8e90ff57;animation:overdriveBreath 3.2s ease-in-out infinite alternate}
+.bubble.runner{z-index:5;box-shadow:inset -20px -20px 40px #0003,0 0 26px 4px #d2edff55}
+.bubble.distant{opacity:.8}
+.bubble-board[data-mode="rustig"] .bubble{animation:none!important;box-shadow:inset -14px -20px 40px #0002,0 12px 35px #0003;transition-timing-function:ease}
+.bubble-board[data-mode="dynamisch"] .bubble.leader{box-shadow:inset -20px -20px 40px #0002,0 0 20px 6px #b6e5ff66}
+.bubble-board[data-mode="overdrive"] .bubble.leader{filter:saturate(1.25) brightness(1.12)}
+@keyframes overdriveBreath{0%{filter:brightness(1) saturate(1.08)}100%{filter:brightness(1.17) saturate(1.2)}}
+@keyframes dramaticCrown{0%{box-shadow:0 0 0 2px #fff9,0 0 35px 20px #fff9}100%{box-shadow:0 0 25px 10px #aedbff66}}
+.bubble.pop-leader{animation:dramaticCrown .85s ease-out,overdriveBreath 3.2s ease-in-out .85s infinite alternate}
+.mode-picker{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.mode-picker button{padding:9px 12px;border-radius:10px;border:1px solid #cbdde9;background:#edf4f8;color:#204359;font-weight:700}
+.mode-picker button.active{background:#173d62;color:white;border-color:#173d62}
+.mode-picker button[data-mode="overdrive"].active{background:#6439ab;color:white}
+.presentation-mode .mode-picker{display:none}
+@media(prefers-reduced-motion:reduce){.bubble,.bubble.leader,.bubble.pop-leader{transition:none!important;animation:none!important}}
 </style></head><body><header><div><h1>◉ De Ambitiebol</h1><small>Van gedeelde ambitie naar zichtbaar handelen · 2026–2027</small></div><span id="statusChip" class="chip">Verbinden...</span></header><main id="app" class="container"></main><div id="toast" role="status"></div><div id="presentationToolbar" class="hidden"><span>◉ De Ambitiebol · Live</span><button class="btn secondary" id="soundToggle">🔇 Geluid uit</button><button class="btn secondary" id="exitFullscreen">⛶ Sluiten</button></div><footer>Een kleine bol betekent niet dat een onderwerp onbelangrijk is. We onderzoeken waar de komende acht weken extra aandacht gewenst is.</footer><script>
 const $=(q)=>document.querySelector(q), esc=(s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const storage='ambitiebol-user', params=new URLSearchParams(location.search), host=location.pathname==='/host',hostKey=params.get('key')||sessionStorage.getItem('hostKey')||'';
@@ -36,6 +54,10 @@ let state=null, answers={},themeIndex=0,lastRev=-1,details='',startThemeIndex=nu
 let noteDraft={}, noteTimer=null, editingNotes=false;
 const bubbleSizes={};
 let persistedCode='';
+let visualMode=localStorage.getItem('ambitiebol-visual-mode')||'overdrive';
+if(!['rustig','dynamisch','overdrive'].includes(visualMode))visualMode='overdrive';
+const motionDisabled=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const bubblePositions={};
 function restore(code){if(persistedCode===code)return;persistedCode=code;startThemeIndex=null;themeIndex=0;leaderId=null;try{answers=JSON.parse(localStorage.getItem('ambitie-answers-'+code+'-'+uid)||'{}')}catch(e){answers={}}}
 function remember(){if(state)localStorage.setItem('ambitie-answers-'+state.code+'-'+uid,JSON.stringify(answers))}
 
@@ -90,38 +112,92 @@ function attentionShares(){
  const total=weights.reduce((a,b)=>a+b,0);
  return Object.fromEntries(entries.map((t,i)=>[t.id,total>0?100*weights[i]/total:0]));
 }
-function bubbleDiameter(share,hasAnswers){
- if(!hasAnswers)return 82;
- // De niet-lineaire schaal benadrukt de onderlinge verschillen.
- // Ook een bol van 0% blijft zichtbaar en aanklikbaar.
- return Math.round(64+290*Math.pow(share/100,0.78));
+// Presentation only: percentages stay unchanged; area proportions get dramatically amplified.
+// The power applies to the fraction of desired extra attention, not the rating scale.
+function visualWeights(shares){
+ const power={rustig:1.15,dynamisch:2.2,overdrive:4}[visualMode];
+ const raw=state.summary.map(t=>Math.pow(shares[t.id]||0,power));
+ const total=raw.reduce((a,b)=>a+b,0);
+ return Object.fromEntries(state.summary.map((t,i)=>[t.id,total>0?raw[i]/total:1/state.summary.length]));
 }
-function bubbleHtml(t,i,shares){
- const share=shares[t.id], diameter=bubbleDiameter(share,t.mean!==null);
- const layout=[[18,22],[50,19],[81,23],[29,51],[70,52],[18,80],[82,81]][i];
- const from=bubbleSizes[t.id]??diameter;
- return `<div class="bubble ${t.mean===null?'hollow':''}" data-theme="${t.id}" data-size="${diameter}" style="width:${from}px;height:${from}px;left:${layout[0]}%;top:${layout[1]}%;background:${t.color}"><strong>${esc(t.short)}</strong><span>${t.mean!==null?`${share.toFixed(1)}% aandacht`:'Nog geen antwoorden'}</span></div>`;
-}
+const bubbleSeeds=[[.22,.28],[.50,.24],[.77,.26],[.30,.55],[.72,.56],[.23,.81],[.79,.82]];
 function board(onlyFocus=false){
  const shares=attentionShares();
  const sorted=[...(onlyFocus?top2():state.summary)].sort((a,b)=>['autonomie','pedagogiek','didactiek','verbinding','scholing','expertise','organisatie'].indexOf(a.id)-['autonomie','pedagogiek','didactiek','verbinding','scholing','expertise','organisatie'].indexOf(b.id));
- return `<div class="bubble-board ${onlyFocus?'focus-board':''}" aria-label="Relatieve aandacht per thema">${sorted.map((t,i)=>onlyFocus?focusBubbleHtml(t,i,shares):bubbleHtml(t,i,shares)).join('')}</div>`;
+ return `<div class="bubble-board ${onlyFocus?'focus-board':''}" data-mode="${visualMode}" aria-label="Relatieve aandacht per thema">${sorted.map((t,i)=>onlyFocus?focusBubbleHtml(t,i,shares):bubbleHtml(t,i,shares)).join('')}</div>`;
+}
+function bubbleHtml(t,i,shares){
+ const share=shares[t.id],hasAnswers=t.mean!==null;
+ const loc=bubblePositions[t.id]||bubbleSeeds[i];
+ return `<div class="bubble ${!hasAnswers?'hollow':''}" data-theme="${t.id}" data-share="${share}" style="width:${bubbleSizes[t.id]||75}px;height:${bubbleSizes[t.id]||75}px;left:${100*loc[0]}%;top:${100*loc[1]}%;background:${t.color}"><strong>${esc(t.short)}</strong><span>${hasAnswers?`${share.toFixed(1)}% aandacht`:'Nog geen antwoorden'}</span></div>`;
 }
 function focusBubbleHtml(t,i,shares){
  const share=shares[t.id],diameter=300;
  return `<div class="bubble focus-bubble" data-theme="${t.id}" data-size="${diameter}" style="width:${diameter}px;height:${diameter}px;left:${i===0?27:73}%;top:50%;background:${t.color}"><strong>${esc(t.name)}</strong><span>${share.toFixed(1)}% van de extra aandacht</span></div>`;
 }
 function animateBubbles(){
- const bubbles=[...document.querySelectorAll('.bubble[data-size]')];
+ const boardEl=document.querySelector('.bubble-board');
+ if(!boardEl)return;
+ const bubbles=[...boardEl.querySelectorAll('.bubble')];
  if(!bubbles.length)return;
- requestAnimationFrame(()=>bubbles.forEach(el=>{
-  const board=el.closest('.bubble-board');
-  const scale=Math.min(board.clientWidth/900,board.clientHeight/650);
-  const target=el.classList.contains('focus-bubble')?Math.round(Math.min(board.clientWidth*.43,board.clientHeight*.72,390)):Math.round(Number(el.dataset.size)*Math.max(.7,scale));
-  el.style.width=target+'px';el.style.height=target+'px';
-  bubbleSizes[el.dataset.theme]=target;
+ if(bubbles.every(b=>b.classList.contains('focus-bubble'))){
+  requestAnimationFrame(()=>bubbles.forEach(el=>{const d=Math.round(Math.min(boardEl.clientWidth*.43,boardEl.clientHeight*.72,390));el.style.width=d+'px';el.style.height=d+'px'}));return;
+ }
+ const shares=attentionShares(),weights=visualWeights(shares);
+ const bw=boardEl.clientWidth,bh=boardEl.clientHeight;
+ if(!bw||!bh)return;
+ const maxSize=Math.min(bw*.55,bh*.72,500);
+ const minSize=Math.max(42,Math.min(76,bw*.08));
+ const scale=visualMode==='overdrive'?1.58:visualMode==='dynamisch'?1.27:1.13;
+ const candidates=bubbles.map((el,i)=>{
+  let diameter=Math.max(minSize,Math.min(maxSize,minSize+scale*Math.sqrt(weights[el.dataset.theme])*Math.min(bw,bh)));
+  const id=el.dataset.theme;
+  const last=bubblePositions[id]||bubbleSeeds[i];
+  return {el,id,diameter,x:last[0]*bw,y:last[1]*bh};
+ });
+ // Limit global occupied area so collisions can resolve within the board.
+ const area=candidates.reduce((sum,c)=>sum+Math.PI*(c.diameter/2+5)**2,0);
+ const capacity=bw*bh*.56;
+ if(area>capacity){const shrink=Math.sqrt(capacity/area);candidates.forEach(c=>c.diameter=Math.max(minSize*.68,c.diameter*shrink))}
+ const byWeight=[...candidates].sort((a,b)=>weights[b.id]-weights[a.id]);
+ const leader=byWeight[0]?.id;
+ const runner=byWeight[1]?.id;
+ // Leaders gravitate toward the center; less important bubbles get pushed to the edges.
+ const centerStrength={rustig:.08,dynamisch:.24,overdrive:.43}[visualMode];
+ for(let k=0;k<65;k++){
+  for(const c of candidates){
+   const seed=bubbleSeeds[state.summary.findIndex(t=>t.id===c.id)]||[.5,.5];
+   const targetX=c.id===leader?bw*.5:seed[0]*bw;
+   const targetY=c.id===leader?bh*.48:seed[1]*bh;
+   const pull=c.id===leader?centerStrength*.09:.012;
+   c.x+=(targetX-c.x)*pull;c.y+=(targetY-c.y)*pull;
+  }
+  for(let i=0;i<candidates.length;i++)for(let j=i+1;j<candidates.length;j++){
+   const a=candidates[i],b=candidates[j],dx=b.x-a.x,dy=b.y-a.y;
+   let dist=Math.hypot(dx,dy);const desired=(a.diameter+b.diameter)/2+9;
+   if(dist<desired){
+    if(dist<.01)dist=.01;
+    const ux=dx/dist||1,uy=dy/dist||0,push=(desired-dist)*.53;
+    // More mass = harder to push.
+    const ma=a.diameter*a.diameter,mb=b.diameter*b.diameter;
+    a.x-=ux*push*mb/(ma+mb)*2;a.y-=uy*push*mb/(ma+mb)*2;
+    b.x+=ux*push*ma/(ma+mb)*2;b.y+=uy*push*ma/(ma+mb)*2;
+   }
+  }
+  for(const c of candidates){const r=c.diameter/2+3;c.x=Math.max(r,Math.min(bw-r,c.x));c.y=Math.max(r,Math.min(bh-r,c.y))}
+ }
+ requestAnimationFrame(()=>candidates.forEach(c=>{
+  const el=c.el;
+  el.style.width=c.diameter+'px';el.style.height=c.diameter+'px';
+  el.style.left=(100*c.x/bw)+'%';el.style.top=(100*c.y/bh)+'%';
+  el.classList.toggle('leader',c.id===leader&&shares[c.id]>0);
+  el.classList.toggle('runner',c.id===runner&&shares[c.id]>0);
+  el.classList.toggle('distant',c.id!==runner&&c.id!==leader);
+  bubblePositions[c.id]=[c.x/bw,c.y/bh];
+  bubbleSizes[c.id]=c.diameter;
  }));
 }
+function modePicker(){return `<div class="mode-picker" role="group" aria-label="Animatiestijl"><strong>Weergave:</strong>${[['rustig','Rustig'],['dynamisch','Dynamisch'],['overdrive','⚡ OVERDRIVE']].map(([id,label])=>`<button type="button" data-mode="${id}" class="${visualMode===id?'active':''}" aria-pressed="${visualMode===id}">${label}</button>`).join('')}</div><p class="muted tiny">Overdrive versterkt alleen het visuele verschil. Percentages en top twee blijven exact gelijk.</p>`}
 function ranks(){
  const shares=attentionShares();
  return state.summary.map((t,i)=>{
@@ -148,7 +224,7 @@ function renderHost(){
  const root=$('#app'),focused=state.phase==='bespreken'||state.phase==='afgerond';
  let content='';
  if(state.phase==='reflectie'){
-  content=`<section class="card"><div class="row"><div>${heading('Waar geven we de komende acht weken aandacht aan?','De grootte toont het aandeel in de totale gewenste extra aandacht.')}</div><span class="pill">Sessie ${state.code}</span></div><div class="actions presentation-launch"><button class="btn secondary" id="goFullscreen">⛶ Bollen fullscreen</button></div><div class="dashboard"><div>${board()}</div><div><h3>Live aandacht per thema</h3>${ranks()}</div></div></section>${detailHtml()}`;
+  content=`<section class="card"><div class="row"><div>${heading('Waar geven we de komende acht weken aandacht aan?','De grootte toont het aandeel in de totale gewenste extra aandacht.')}</div><span class="pill">Sessie ${state.code}</span></div><div class="actions presentation-launch"><button class="btn secondary" id="goFullscreen">⛶ Bollen fullscreen</button></div>${modePicker()}<div class="dashboard"><div>${board()}</div><div><h3>Live aandacht per thema</h3>${ranks()}</div></div></section>${detailHtml()}`;
  }else if(state.phase==='bespreken'){
   content=`<section class="card"><div class="row"><div>${heading('Deze twee bollen nemen we mee','De gekozen focus is vastgezet op basis van de antwoorden bij het sluiten van de reflectie.')}</div><span class="pill">Sessie ${state.code}</span></div><div class="actions presentation-launch"><button class="btn secondary" id="goFullscreen">⛶ Bollen fullscreen</button></div>${top2().length?`<div class="dashboard focus-dashboard"><div>${board(true)}</div><div><h3>Twee aandachtsgebieden</h3>${top2().map((t,i)=>`<div class="theme-row"><strong>${i+1}. ${esc(t.name)}</strong><p class="muted">${attentionShares()[t.id].toFixed(1)}% van de extra ontwikkelaandacht</p></div>`).join('')}</div></div>`:'<div class="empty">Nog geen antwoorden ontvangen. Ga terug naar reflectie om antwoorden te verzamelen.</div>'}</section>${focusInstructions()}`;
  }else{
@@ -158,6 +234,7 @@ function renderHost(){
  const joining=`<section class="card"><div class="row"><div><h3>Deelnemen via QR-code of link</h3><p><a href="${joinUrl()}" target="_blank" rel="noopener">${esc(joinUrl())}</a></p><button class="btn secondary" id="copyLink">Kopieer deelnemerslink</button></div><img class="qr" src="/api/qr?url=${encodeURIComponent(joinUrl())}" alt="QR-code voor de deelnemerslink"></div></section>`;
  root.innerHTML=content+(!focused?joining:'')+controls;
  animateBubbles();
+ document.querySelectorAll('button[data-mode]').forEach(btn=>btn.onclick=()=>{visualMode=btn.dataset.mode;localStorage.setItem('ambitiebol-visual-mode',visualMode);renderHost()});
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{details=b.dataset.detail;renderHost()});document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{details=b.dataset.theme;renderHost()});$('#hideDetail')?.addEventListener('click',()=>{details='';renderHost()});
  $('#goFullscreen')?.addEventListener('click',togglePresentation);$('#copyLink')?.addEventListener('click',()=>{navigator.clipboard.writeText(joinUrl()).then(()=>toast('Link gekopieerd')).catch(()=>toast('Kopiëren lukte niet'))});
  document.querySelectorAll('[data-phase]').forEach(b=>b.onclick=async()=>{try{if(editingNotes){clearTimeout(noteTimer);for(const id of Object.keys(noteDraft))await saveNotes(id)}await api('host/phase',{phase:b.dataset.phase},true);lastRev=-1;await poll()}catch(e){toast(e.message)}});
